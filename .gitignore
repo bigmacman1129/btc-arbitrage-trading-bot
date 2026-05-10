@@ -8,3 +8,6 @@
 *.db
 
 bitcoin_arbitrage/monitor/settings.py
+
+.env
+.env.*

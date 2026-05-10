@@ -54,7 +54,7 @@ class Trader(UpdateAction):
             return
 
     def _should_use_this_spread(self) -> bool:
-        above_spread_limit = self.spread.spread > settings.MINIMUM_SPREAD_TRADING
+        above_spread_limit = self.spread.net_spread > settings.MINIMUM_NET_SPREAD_TRADING
         return above_spread_limit
 
     def _make_trade(self) -> Trade:

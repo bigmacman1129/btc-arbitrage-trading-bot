@@ -3,4 +3,4 @@
 set -x
 
 export PYTHONPATH=.
-pipenv run python bitcoin_arbitrage/app.py
+pipenv run python -m bitcoin_arbitrage.app

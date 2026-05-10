@@ -1,0 +1,4 @@
+"""
+bitcoin_arbitrage package.
+"""
+

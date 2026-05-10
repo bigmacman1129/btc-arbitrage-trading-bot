@@ -7,7 +7,7 @@ A python monitoring and trading bot which exploits price-spreads between differe
 <img width="1235" alt="bitcoin-arbitrage-trading-bot" src="https://user-images.githubusercontent.com/3121306/46918330-4ce52400-cfd1-11e8-8c30-1c6dd0758e04.png">
 
 ## Capabilities
-- Monitoring of spreads between exchanges (eg. Gdax, Bitfinex, Bitstamp, ...)
+- Monitoring of spreads between exchanges (eg. Coinbase Exchange (formerly GDAX), Bitfinex, Bitstamp, ...)
 - Multiple currency pairs configurable (eg. BTC/EUR, ETH/USD, ...)
 - Notifications on spread thresholds (eg. spreads of > 200€) via different notification channels (eg. Pushbullet, Mail, ...)
 - Automated trading for configured spread thresholds (partly implemented)
@@ -19,10 +19,10 @@ The following example explains *spreads* between exchanges:
 
 | Exchange | BTC/EUR price |
 |----------|---------------|
-| Gdax     | 5000€         |
+| Coinbase Exchange | 5000€         |
 | Bitfinex | 5**6**00€         |
 
-This results in a spread of 600€ for the price of 1 BTC in EUR between Gdax and Bitfinex (this example is not based on ask and bid prices for simplicity reasons, the bot itself uses those correct prices).
+This results in a spread of 600€ for the price of 1 BTC in EUR between Coinbase Exchange and Bitfinex (this example is not based on ask and bid prices for simplicity reasons, the bot itself uses those correct prices).
 
 ### How to exploit this spread?
 (example based on above table)
@@ -108,6 +108,8 @@ Requirements:
 Run the monitor:
 - `pipenv install` - Install requirements
 - `scripts/copy-config` - Copy config file (some dummy settings are set by default)
+- Set `FLASK_SECRET_KEY` to a long random value before starting the web app
+- Optional: set `FLASK_DEBUG=1` for local debugging
 - `scripts/run` - Run the monitor
 
 ### Running on server

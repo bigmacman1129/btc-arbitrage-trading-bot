@@ -1,6 +1,6 @@
 {% extends "base_site.html" %}
 
-{% block title %}{{ spreads.0.spread }}€ {% endblock title %}
+{% block title %}{% if spreads and spreads|length > 0 %}{{ spreads[0].spread }}€{% else %}No spreads{% endif %}{% endblock title %}
 
 {#{% block head %}#}
 {#    {{ super }}#}
@@ -18,7 +18,13 @@
 
 {% block content %}
   <div class="right_col" role="main">
-    {% include 'include/spread_top_tiles.html' %}
+    {% if spreads and spreads|length > 0 %}
+      {% include 'include/spread_top_tiles.html' %}
+    {% else %}
+      <div class="alert alert-warning">
+        No spread data is available yet. Exchange APIs may be unreachable.
+      </div>
+    {% endif %}
     <div class="row">
         {% include 'include/spreads_table.html' %}
     </div>

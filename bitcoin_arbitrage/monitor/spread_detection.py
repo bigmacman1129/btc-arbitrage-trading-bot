@@ -1,4 +1,3 @@
-from bitcoin_arbitrage.monitor import settings
 from bitcoin_arbitrage.monitor.exchange import Exchange
 from bitcoin_arbitrage.monitor.log import setup_logger
 
@@ -23,6 +22,7 @@ class Spread:
         self.exchange_buy: Exchange = None
         self.exchange_sell: Exchange = None
         self.spread = self._calculate_spread()
+        self.net_spread = self._calculate_net_spread()
 
     def __str__(self) -> str:
         return self.summary
@@ -34,15 +34,23 @@ class Spread:
     def summary(self) -> str:
         return f'{self.exchange_buy} [{self.exchange_buy.last_ask_price}] -> ' \
                f'{self.exchange_sell} [{self.exchange_sell.last_bid_price}] -> ' \
-               f'Spread: {self.spread_with_currency}'
+               f'Spread: {self.spread_with_currency} | Net: {self.net_spread_with_currency}'
 
     @property
     def spread_with_currency(self) -> str:
         return f'{self.spread} {self.exchange_buy.currency_pair.fiat_symbol}'
 
     @property
+    def net_spread_with_currency(self) -> str:
+        return f'{self.net_spread} {self.exchange_buy.currency_pair.fiat_symbol}'
+
+    @property
     def spread_percentage(self):
         return self.spread / self.exchange_buy.last_bid_price
+
+    @property
+    def net_spread_percentage(self):
+        return self.net_spread / self.exchange_buy.last_bid_price
 
     def _calculate_spread(self) -> int:
         # if any of the necessary values is unavailale, a spread can not be calculated
@@ -63,5 +71,33 @@ class Spread:
             self.exchange_sell = self.exchange_two
             return d2
 
+    def _bps_to_fraction(self, bps: float) -> float:
+        return bps / 10_000.0
+
+    def _effective_buy_price(self, ask: float) -> float:
+        from bitcoin_arbitrage.monitor import settings
+        fee_bps = getattr(settings, 'DEFAULT_TAKER_FEE_BPS', 10.0)
+        slip_bps = getattr(settings, 'DEFAULT_SLIPPAGE_BPS', 5.0)
+        fee = self._bps_to_fraction(float(fee_bps))
+        slip = self._bps_to_fraction(float(slip_bps))
+        return ask * (1.0 + fee + slip)
+
+    def _effective_sell_price(self, bid: float) -> float:
+        from bitcoin_arbitrage.monitor import settings
+        fee_bps = getattr(settings, 'DEFAULT_TAKER_FEE_BPS', 10.0)
+        slip_bps = getattr(settings, 'DEFAULT_SLIPPAGE_BPS', 5.0)
+        fee = self._bps_to_fraction(float(fee_bps))
+        slip = self._bps_to_fraction(float(slip_bps))
+        return bid * (1.0 - fee - slip)
+
+    def _calculate_net_spread(self) -> int:
+        # Net spread model: (sell_bid - fees/slip) - (buy_ask + fees/slip)
+        buy_ask = float(self.exchange_buy.last_ask_price)
+        sell_bid = float(self.exchange_sell.last_bid_price)
+        net = self._effective_sell_price(sell_bid) - self._effective_buy_price(buy_ask)
+        return int(net)
+
     def is_above_trading_thresehold(self) -> bool:
-        return self.spread > settings.MINIMUM_SPREAD_TRADING
+        from bitcoin_arbitrage.monitor import settings
+        threshold = getattr(settings, 'MINIMUM_NET_SPREAD_TRADING', settings.MINIMUM_SPREAD_TRADING)
+        return self.net_spread > threshold

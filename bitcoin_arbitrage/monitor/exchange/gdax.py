@@ -3,10 +3,10 @@ import datetime
 import hmac
 
 import hashlib
+import os
 import requests
 from requests.auth import AuthBase
 
-from bitcoin_arbitrage.monitor import settings
 from bitcoin_arbitrage.monitor.currency import CurrencyPair
 from bitcoin_arbitrage.monitor.exchange import Exchange, BTCAmount
 from bitcoin_arbitrage.monitor.log import setup_logger
@@ -23,11 +23,16 @@ class GdaxAuth(AuthBase):
         self.passphrase = passphrase
 
     def __call__(self, request):
-        timestamp = str(datetime.time())
-        message = timestamp + request.method + request.path_url + (request.body or '')
+        if not self.api_key or not self.secret_key or not self.passphrase:
+            raise ValueError('Missing Coinbase Exchange API credentials (key/secret/passphrase).')
+        timestamp = str(int(datetime.datetime.utcnow().timestamp()))
+        body = request.body or b''
+        if isinstance(body, str):
+            body = body.encode('utf-8')
+        message = f"{timestamp}{request.method}{request.path_url}".encode('utf-8') + body
         hmac_key = base64.b64decode(self.secret_key)
         signature = hmac.new(hmac_key, message, hashlib.sha256)
-        signature_b64 = signature.digest().encode('base64').rstrip('\n')
+        signature_b64 = base64.b64encode(signature.digest()).decode('utf-8')
 
         request.headers.update({
             'CB-ACCESS-SIGN': signature_b64,
@@ -40,7 +45,8 @@ class GdaxAuth(AuthBase):
 
 
 class Gdax(Exchange):
-    base_url = "https://api.gdax.com"
+    # GDAX was renamed to Coinbase Pro and later folded into Coinbase Exchange.
+    base_url = "https://api.exchange.coinbase.com"
 
     currency_pair_api_representation = {
         CurrencyPair.BTC_USD: "BTC-USD",
@@ -52,10 +58,18 @@ class Gdax(Exchange):
 
     def __init__(self,
                  currency_pair: CurrencyPair,
-                 api_key: str=settings.GDAX_KEY,
-                 secret_key: str=settings.GDAX_SECRET,
-                 passphrase: str=settings.GDAX_PASSPHRASE):
+                 api_key: str | None = None,
+                 secret_key: str | None = None,
+                 passphrase: str | None = None):
         super().__init__(currency_pair)
+        # Avoid importing `settings` here (it imports Exchange classes and creates circular imports).
+        api_key = api_key if api_key is not None else os.environ.get('GDAX_KEY')
+        secret_key = secret_key if secret_key is not None else os.environ.get('GDAX_SECRET')
+        passphrase = passphrase if passphrase is not None else os.environ.get('GDAX_PASSPHRASE')
+        # Optional modern env names (keeps backward compatibility with GDAX_*)
+        api_key = api_key or os.environ.get('COINBASE_EXCHANGE_KEY')
+        secret_key = secret_key or os.environ.get('COINBASE_EXCHANGE_SECRET')
+        passphrase = passphrase or os.environ.get('COINBASE_EXCHANGE_PASSPHRASE')
         self.auth = GdaxAuth(api_key, secret_key, passphrase)
 
     @property

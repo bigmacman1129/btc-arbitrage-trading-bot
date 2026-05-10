@@ -1,20 +1,6 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
-from bitcoin_arbitrage.app import db
-from bitcoin_arbitrage.config import SQLALCHEMY_DATABASE_URI
+from bitcoin_arbitrage.extensions import db
 from bitcoin_arbitrage.monitor.currency import CurrencyPair
-
-engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=True)
-db_session = scoped_session(sessionmaker(autocommit=False,
-                                         autoflush=False,
-                                         bind=engine))
-Base = declarative_base()
-Base.query = db_session.query_property()
-
-# create all tables
-Base.metadata.create_all(bind=engine)
 
 
 class Spread(db.Model):

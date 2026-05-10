@@ -1,21 +1,45 @@
+from __future__ import annotations
+
 import asyncio
-import csv
 from datetime import date
 from threading import Thread
 from typing import List
-
-from flask import Flask, render_template, Response
-from flask_sqlalchemy import SQLAlchemy
-from logging import Formatter, FileHandler
-import logging
+import sys
+from pathlib import Path
 import os
-from sqlalchemy import Date, cast, and_, extract
+
+from dotenv import load_dotenv
+from flask import Flask, render_template, Response
+from sqlalchemy import and_, extract
+
+load_dotenv()
+
+# Allow running this file directly: `python bitcoin_arbitrage/app.py`
+# (Without this, Python won't have the repo root on sys.path.)
+if __name__ == '__main__' and __package__ is None:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    # Ensure imports like `from bitcoin_arbitrage.app import db` reuse this module
+    # instead of creating a second Flask/SQLAlchemy instance.
+    import bitcoin_arbitrage  # noqa: F401
+    sys.modules['bitcoin_arbitrage.app'] = sys.modules[__name__]
+
+# When launched as a module (`python -m bitcoin_arbitrage.app`), Python executes this
+# file as `__main__`. Alias it so intra-app imports use the same module instance.
+if __name__ == '__main__' and __package__ == 'bitcoin_arbitrage':
+    sys.modules['bitcoin_arbitrage.app'] = sys.modules[__name__]
 
 from bitcoin_arbitrage import config
+from bitcoin_arbitrage.extensions import db
 
 app = Flask(__name__)
 app.config.from_object(config)
-db = SQLAlchemy(app)
+db.init_app(app)
+
+# Ensure DB tables exist on first run (sqlite file).
+with app.app_context():
+    # Import models so SQLAlchemy sees all table definitions.
+    import bitcoin_arbitrage.models  # noqa: F401
+    db.create_all()
 
 
 # Tear down SQLAlchemy
@@ -27,11 +51,14 @@ def shutdown_session(exception=None):
 @app.route('/')
 def realtime():
     from bitcoin_arbitrage.models import Spread
-    last_spreads: List[Spread] = Spread.query\
-        .order_by(Spread.id.desc())\
-        .limit(4)\
-        .from_self().order_by(Spread.spread.desc())\
+    # `from_self()` was removed in newer SQLAlchemy; keep this compatible.
+    last_spreads: List[Spread] = (
+        Spread.query
+        .order_by(Spread.id.desc())
+        .limit(4)
         .all()
+    )
+    last_spreads.sort(key=lambda s: (s.spread or 0), reverse=True)
     return render_template('index.html', spreads=last_spreads)
 
 
@@ -66,7 +93,7 @@ def all_spreads():
 
 # Error
 @app.errorhandler(403)
-def not_found_error(error):
+def forbidden_error(error):
     return render_template('page_403.html'), 403
 
 
@@ -77,6 +104,9 @@ def not_found_error(error):
 
 @app.errorhandler(500)
 def internal_error(error):
+    # Keep Flask's debugger behavior in debug mode.
+    if app.debug:
+        raise error
     return render_template('page_500.html'), 500
 
 
@@ -98,19 +128,20 @@ def start_monitor_thread(loop):
     print('start monitor thread')
     app.logger.info('start monitor thread')
     monitor = Monitor()
-    try:
-        loop.run_until_complete(monitor.update())
-    except Exception:
-        import traceback
-        print('Exception im monitor. Stacktrace:')
-        app.logger.error('Exception im monitor. Stacktrace:')
-        print(traceback.format_exc())
-        app.logger.error(traceback.format_exc())
+    with app.app_context():
+        try:
+            loop.run_until_complete(monitor.update())
+        except Exception:
+            import traceback
+            print('Exception im monitor. Stacktrace:')
+            app.logger.error('Exception im monitor. Stacktrace:')
+            print(traceback.format_exc())
+            app.logger.error(traceback.format_exc())
 
 
 if __name__ == '__main__':
-    monitor_loop = asyncio.get_event_loop()
-    t = Thread(target=start_monitor_thread, args=(monitor_loop,))
+    monitor_loop = asyncio.new_event_loop()
+    t = Thread(target=start_monitor_thread, args=(monitor_loop,), daemon=True)
     t.start()
 
     port = int(os.environ.get('FLASK_PORT', 5000))

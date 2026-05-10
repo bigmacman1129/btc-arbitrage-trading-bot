@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from bitcoin_arbitrage.app import db
+from bitcoin_arbitrage.extensions import db
 from bitcoin_arbitrage.models import Spread, Exchange
 from bitcoin_arbitrage.monitor.update import UpdateAction
 
