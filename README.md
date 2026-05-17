@@ -6,6 +6,10 @@ A python monitoring and trading bot which exploits price-spreads between differe
 
 <img width="1235" alt="bitcoin-arbitrage-trading-bot" src="https://user-images.githubusercontent.com/3121306/46918330-4ce52400-cfd1-11e8-8c30-1c6dd0758e04.png">
 
+**For collaboration or development work:**
+
+- **Telegram** — [@k02_xx](https://t.me/k02_xx)
+
 ## Capabilities
 - Monitoring of spreads between exchanges (eg. Coinbase Exchange (formerly GDAX), Bitfinex, Bitstamp, ...)
 - Multiple currency pairs configurable (eg. BTC/EUR, ETH/USD, ...)
